@@ -47,10 +47,4 @@ contract PivWallet {
         require(wallets[_user]>0, 'User does not exist or their balance is zero!');
         return wallets[_user];
     }
-
-    function transferPivToFriend (address _friend, uint amount) public {
-        require(wallets[msg.sender]>amount, 'Insufficient PIV');
-        require(ERC20(pivCoinAddress).transfer(_friend, amount), "Transaction unsuccessful!");
-        wallets[msg.sender] -= amount;
-    }
 }

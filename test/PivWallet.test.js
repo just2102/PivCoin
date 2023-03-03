@@ -5,12 +5,13 @@ const {ethers} = require("hardhat");
 describe("PivWallet", function() {
     let acc1
     let acc2
+    let acc3
     let pivContract
     let walletContract
 
     beforeEach(async function() {
         // deploy coin
-        [acc1, acc2] = await ethers.getSigners()
+        [acc1, acc2, acc3] = await ethers.getSigners()
         const PivCoin = await ethers.getContractFactory("PivCoin", acc1)
         pivContract = await PivCoin.deploy()
         await pivContract.deployed();
@@ -77,7 +78,6 @@ describe("PivWallet", function() {
 
         const holderWalletBeforeRedeem = await walletContract.wallets(acc2.address)
         const holderWalletBeforeRedeemFormatted = ethers.utils.formatEther(holderWalletBeforeRedeem)
-        console.log('redeemable acc2 balance (on contract wallet) before redeem: ' + holderWalletBeforeRedeemFormatted)
 
         // holder redeems
         await walletContract.connect(acc2).redeemPiv(pivAmount)
@@ -86,12 +86,20 @@ describe("PivWallet", function() {
         // holder wallet should be 0
         const holderWalletAfterRedeem = await walletContract.wallets(acc2.address)
         const holderWalletAfterRedeemFormatted = ethers.utils.formatEther(holderWalletAfterRedeem)
-        console.log('redeemable acc2 balance (on contract wallet) after redeem: ' + holderWalletAfterRedeemFormatted)
 
         // owner balance should increase (back to 5000.0)
         const balance1After = await pivContract.balanceOf(acc1.address)
         const balance1AfterFormatted = ethers.utils.formatEther(balance1After)
-        console.log('balance 1 after (PIV): '+ balance1AfterFormatted )
         expect(balance1AfterFormatted).to.equal("5000.0")
+    })
+
+    it('should display balance correctly', async() => {
+        const pivAmount = ethers.utils.parseEther("80.0");
+        await pivContract.connect(acc1).transfer(walletContract.address, pivAmount)
+        await walletContract.connect(acc1).designatePiv(acc2.address, pivAmount)
+
+        const response = await walletContract.connect(acc1).getBalance(acc2.address)
+        const responseFormatted = ethers.utils.formatEther(response)
+        expect(responseFormatted).to.equal("80.0")
     })
 })

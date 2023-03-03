@@ -1,23 +1,17 @@
 const hre = require("hardhat")
 const ethers = hre.ethers
 
-async function main() {
+async function deployPivWallet(pivCoinAddress) {
     const [signer] = await ethers.getSigners()
 
     const PivWallet = await ethers.getContractFactory('PivWallet', signer)
 
-    const pivWallet = await PivWallet.deploy();
+    const pivWallet = await PivWallet.deploy(pivCoinAddress);
 
     await pivWallet.deployed()
 
+    console.log('pivcoin contract address: ' + pivCoinAddress)
     console.log('pivwallet contract address: ' + pivWallet.address)
 }
 
-
-
-main()
-.then(()=>process.exit(0))
-.catch((error)=>{
-  console.error(error)
-  process.exit(1)
-})
+module.exports = deployPivWallet

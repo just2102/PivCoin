@@ -2,6 +2,8 @@ const hre = require('hardhat')
 const ethers = hre.ethers
 const WalletArtifact = require("../artifacts/contracts/PivWallet.sol/PivWallet.json")
 
+
+
 async function main() {
     const [acc1, acc2, acc3] = await ethers.getSigners()
     const walletAddress = process.env.PIVWALLET_ADDRESS
@@ -14,9 +16,20 @@ async function main() {
     )
     const pivContract = await ethers.getContractAt("PivCoin", pivCoinAddress)
 
-    const pivAmount = ethers.utils.parseEther("35.0");
+
+    const pivAmount = ethers.utils.parseEther("10.0");
+
+    const contractBalanceBeforeRedeem = ethers.utils.formatEther(await pivContract.balanceOf(walletAddress))
+    console.log('Contract balance before redeem: ' + contractBalanceBeforeRedeem)
+    
+    // redeem
+    await walletContract.connect(acc2).redeemPiv(pivAmount)
+
+    const contractBalanceAfterRedeem = ethers.utils.formatEther(await pivContract.balanceOf(walletAddress))
+    console.log('Contract balance after redeem: ' + contractBalanceAfterRedeem)
 
 }
+
 
 
 

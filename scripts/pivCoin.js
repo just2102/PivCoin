@@ -18,7 +18,7 @@ async function main() {
         CoinArtifact.abi,
         acc1
     )
-
+    
     await coinContract.connect(acc1).mintTo(500, acc1.address)
 
     // await getBalance(coinContract, acc2.address)
