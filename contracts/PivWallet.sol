@@ -5,12 +5,13 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 contract PivWallet {
     address payable owner;
-    address pivCoinAddress = 0x8b1e52917D14dbEF0914E1Cd33b7B328a795d6B7;
+    address public pivCoinAddress;
     address newNftContractAddress;
 
     mapping (address => uint) public wallets;
 
-    constructor() {
+    constructor(address _pivCoinAddress) {
+        pivCoinAddress = _pivCoinAddress;
         owner = payable(msg.sender);
     }
 
@@ -18,14 +19,22 @@ contract PivWallet {
         require(msg.sender == owner, "Permission denied");
         _;
     }
+    receive() external payable {
 
-    function receivePiv (address receiver) public payable {
-        // ONLY PIV should be sent to this function
-        // other coins might get lost!
-        wallets[receiver] += msg.value;
     }
 
-    function redeemPiv (uint amount) public {
+    function designatePiv (address receiver, uint amount) onlyOwner public {
+        // ONLY PIV should be sent to this function
+        // other coins might get lost!
+        wallets[receiver] += amount;
+    }
+
+    modifier walletOwner {
+        require(wallets[msg.sender]> 0, "You do not have a wallet");
+        _;
+    }
+
+    function redeemPiv (uint amount) walletOwner public {
         // redeemed PIV are sent to the owner account
         require(wallets[msg.sender]>=amount, "Insufficient balance");
         require(ERC20(pivCoinAddress).transfer(owner, amount), "Transfer unsuccessful!");

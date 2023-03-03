@@ -3,10 +3,12 @@ const ethers = hre.ethers
 require('dotenv').config();
 const CoinArtifact = require("../artifacts/contracts/PivCoin.sol/PivCoin.json")
 
-const currentBalance = async(message,address) => {
-    const balance = await ethers.provider.balance
-    console.log(message, ethers.utils.formatEther(balance))
+const getBalance = async(contract, address) => {
+    const balance = await contract.balanceOf(address) 
+    const balanceFormatted = ethers.utils.formatEther(balance)
+    console.log(`balance of ${address}: ${balanceFormatted}`)
 }
+
 
 async function main() {
     const [acc1, acc2] = await ethers.getSigners()
@@ -16,13 +18,13 @@ async function main() {
         CoinArtifact.abi,
         acc1
     )
-    const newBalance = await coinContract.balanceOf(acc2.address)
-    console.log('new balance of acc2 after mint: '+ newBalance)
+
+    await coinContract.connect(acc1).mintTo(500, acc1.address)
+
+    // await getBalance(coinContract, acc2.address)
+
+
 }
-
-
-
-
 
 main()
 .then(()=>process.exit(0))
