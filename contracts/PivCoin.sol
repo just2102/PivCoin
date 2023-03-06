@@ -18,4 +18,12 @@ contract PivCoin is ERC20 {
         _mint(_to, amount*10**18);
     }
 
+    function transferAndCall(address to, uint256 value, bytes calldata data) external returns (bool success) {
+        require(balanceOf(msg.sender) >= value);
+        _transfer(msg.sender, to, value);
+        (bool callSuccess, ) = to.call(data);
+        require(callSuccess, "transferAndCall: call to recipient contract failed");
+        return true;
+    }
+
 }
