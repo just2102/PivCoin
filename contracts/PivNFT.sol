@@ -22,10 +22,6 @@ contract PivNFT is ERC721 {
         pivWalletAddress = newWalletAddress;
     }
 
-    modifier onlyPivWallet() {
-        require(msg.sender == pivWalletAddress);
-        _;
-    }
     struct WalletNFT {
         uint nftId;
         bytes32 mintedHash;
@@ -36,24 +32,29 @@ contract PivNFT is ERC721 {
         bytes32 burnedHash;
     }
 
+    modifier onlyPivWallet {
+        require(msg.sender==pivWalletAddress);
+        _;
+    }
 
-    function mint() onlyPivWallet public returns (uint256, bytes32) {
+
+    function mint(address receiver) onlyPivWallet public returns (uint256, bytes32) {
         uint256 newTokenId = tokenCounter;
 
-        _safeMint(owner, newTokenId);
-        bytes32 mintedHash = keccak256(abi.encode(newTokenId, block.timestamp, msg.sender));
+        _safeMint(receiver, newTokenId);
+        bytes32 mintedHash = keccak256(abi.encode(newTokenId, block.timestamp, "minted"));
         emit Minted(newTokenId, mintedHash);
         tokenCounter++;
 
         return (newTokenId, mintedHash);
     }
 
-    function burn(uint256 tokenId, bytes32 mintedHash) onlyPivWallet public returns(bytes32) {
+    function burn(address burner, uint256 tokenId, bytes32 mintedHash) onlyPivWallet public returns(bytes32) {
         require(_exists(tokenId), "NFT does not exist (ERC721)");
+        require(_isApprovedOrOwner(burner, tokenId), "No permission or ownership of NFT recorded");
         _burn(tokenId);
         bytes32 burnedHash = keccak256(abi.encodePacked(tokenId, mintedHash, "burned"));
         emit Burned(tokenId, mintedHash, burnedHash);
-        tokenCounter--;
         return burnedHash;
     }
 

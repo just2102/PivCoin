@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const {ethers} = require("hardhat");
 
+
 describe("PivWallet", function() {
     let acc1
     let acc2
@@ -119,57 +120,76 @@ describe("PivWallet", function() {
         await expect(walletContract.connect(acc2).redeemPiv()).to.be.revertedWith('Insufficient balance, should have at least 100 PIV')
     })
 // NFT INTERACTION (MINT/BURN)
-    it('should award NFT after redeeming 100 PIV', async() => {
-        const pivAmount = ethers.utils.parseEther("100.0");
+    it('should be able to receive NFT after redeeming 100 PIV', async() => {
+        const pivAmount = ethers.utils.parseEther("200.0");
+        await pivContract.connect(acc1).transfer(walletContract.address, pivAmount)
+        await walletContract.connect(acc1).designatePiv(acc2.address, pivAmount)
+        // holder redeems PIV and receives an nft
+        // nftContract.on("Minted", (newTokenId, mintedHash) => {
+        //     console.log(`New NFT minted! ID: ${newTokenId}, Hash: ${mintedHash}`);
+        // });
+        await walletContract.connect(acc2).redeemPiv()
+        await walletContract.connect(acc2).redeemPiv()
+        // check ownership on wallet
+        const acc2NFT0 = await walletContract.connect(acc2).getMyNFTById(0)
+        const acc2NFT1 = await walletContract.connect(acc2).getMyNFTById(1)
+        expect(acc2NFT0.exists).to.equal(true);
+        expect(acc2NFT1.exists).to.equal(true)
+        // check ownership in blockchain
+        expect(await nftContract.balanceOf(acc2.address)).to.equal(2)
+    })
+    it('should be able to receive multiple NFTs', async() => {
+        const pivAmount = ethers.utils.parseEther("300.0");
         await pivContract.connect(acc1).transfer(walletContract.address, pivAmount)
         await walletContract.connect(acc1).designatePiv(acc2.address, pivAmount)
         // holder redeems PIV and receives an nft
         await walletContract.connect(acc2).redeemPiv()
+        await walletContract.connect(acc2).redeemPiv()
+        await walletContract.connect(acc2).redeemPiv()
 
-        walletContract.on("NFTMinted", (newTokenId, mintedHash) => {
-            console.log(`New NFT minted! ID: ${newTokenId}, Hash: ${mintedHash}`);
-        });
-
-        const acc2NFTS = await walletContract.connect(acc2).getMyNFTS()
-        expect(acc2NFTS[0].nftId).to.equal('0')
+        const acc2NFT0 = await walletContract.connect(acc2).getMyNFTById(0)
+        const acc2NFT1 = await walletContract.connect(acc2).getMyNFTById(1);
+        const acc2NFT2 = await walletContract.connect(acc2).getMyNFTById(2);
+        expect(acc2NFT0.exists).to.equal(true)
+        expect(acc2NFT1.exists).to.equal(true)
+        expect(acc2NFT2.exists).to.equal(true);
+        // check ownership on blockchain
+        expect(await nftContract.balanceOf(acc2.address)).to.equal(3);
     })
     it('should be able to redeem NFTs, burn them and save them in the wallet', async() => {
-        const pivAmount = ethers.utils.parseEther("100.0");
+        const pivAmount = ethers.utils.parseEther("200.0");
         await pivContract.connect(acc1).transfer(walletContract.address, pivAmount)
         await walletContract.connect(acc1).designatePiv(acc2.address, pivAmount)
-        // holder redeems PIV and receives an nft
+        // holder redeems PIV and receives nfts
+        await walletContract.connect(acc2).redeemPiv()
         await walletContract.connect(acc2).redeemPiv()
         
-        const acc2NFTS = await walletContract.connect(acc2).getMyNFTS()
-        const nftToBurn = acc2NFTS[0]
-        // holder redeems his NFT and the NFT is burned
-        await walletContract.connect(acc2).redeemNFT(nftToBurn.nftId)
-        walletContract.on("NFTRedeemed", (nftId, mintedHash, burnedHash) => {
-            console.log(`nft id: ${nftId} ; minted hash: ${mintedHash} ; burnedHash: ${burnedHash}`)
-        })
-
-        const acc2BurnedNFTS = await walletContract.connect(acc2).getMyBurnedNFTS()
-        expect(acc2BurnedNFTS[0].nftId).to.equal(0)
-
+        let acc2NFT0 = await walletContract.connect(acc2).getMyNFTById(0)
+        // holder redeems the NFT and the NFT is burned
+        await walletContract.connect(acc2).redeemNFT(acc2NFT0.nftId)
+        // nftContract.on("Burned", (nftId, mintedHash, burnedHash) => {
+        //     console.log(`New NFT burned! ID: ${newTokenId}, Hash: ${mintedHash}`);
+        // })
+        const acc2BurnedNFT0 = await walletContract.connect(acc2).getMyBurnedNFTById(0)
+        expect(acc2BurnedNFT0.mintedHash).to.equal(acc2NFT0.mintedHash)
         // successfully removes nft from user wallet
-
+        expect(walletContract.connect(acc2).getMyNFTById(0)).to.be.revertedWith('This NFT is not stored in your wallet!')
+        // check blockchain
+        expect(await nftContract.balanceOf(acc2.address)).to.equal(1)
     })
 
     it('should successfully search NFT by id (among my nfts)', async() => {
-        const pivAmount = ethers.utils.parseEther("100.0");
+        const pivAmount = ethers.utils.parseEther("400.0");
         await pivContract.connect(acc1).transfer(walletContract.address, pivAmount)
         await walletContract.connect(acc1).designatePiv(acc2.address, pivAmount)
         // holder redeems PIV and receives an nft
         await walletContract.connect(acc2).redeemPiv()
+        await walletContract.connect(acc2).redeemPiv()
+        await walletContract.connect(acc2).redeemPiv()
+        await walletContract.connect(acc2).redeemPiv()
 
-        const firstNFT = await walletContract.connect(acc2).getMyNFTById(0)
-        expect(firstNFT.nftId).to.equal('0')
-        
-        // holder redeems his NFT and the NFT is burned
-        await walletContract.connect(acc2).redeemNFT(firstNFT.nftId)
-
-        const firstNFTBurned = await walletContract.connect(acc2).getMyBurnedNFTById(0)
-        
+        const firstNFT = await walletContract.connect(acc2).getMyNFTById(3)
+        expect(firstNFT.nftId).to.equal('3')
     })
 
     it('should display balance of holders correctly', async() => {

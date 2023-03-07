@@ -11,15 +11,18 @@ contract PivWallet {
     uint public constant NFT_PRICE = 100000000000000000000; // fixed price of NFTs
     struct Wallet {
         uint pivBalance;
-        WalletNFT[] nfts;
-        BurnedNFT[] burnedNfts;
+        // WalletNFT[] nfts;
+        mapping (uint256 => WalletNFT) nfts;
+        // BurnedNFT[] burnedNfts;
+        mapping (uint256 => BurnedNFT) burnedNfts;
     }
     struct WalletNFT {
-        uint nftId;
+        uint256 nftId;
         bytes32 mintedHash;
+        bool exists;
     }
     struct BurnedNFT {
-        uint nftId;
+        uint256 nftId;
         bytes32 mintedHash;
         bytes32 burnedHash;
     }
@@ -49,16 +52,20 @@ contract PivWallet {
         require(wallets[msg.sender].pivBalance> 0, "You do not have a wallet");
         _;
     }
-    modifier hasNFT {
-        require(wallets[msg.sender].nfts.length > 0, "You do not have any NFTs in your wallet!");
+    modifier hasNFT (uint256 nftId) {
+        require(wallets[msg.sender].nfts[nftId].mintedHash!=0, "This NFT is not stored in your wallet!");
+        _;
+    }
+    modifier hasBurnedNFT (uint256 nftId) {
+        require(wallets[msg.sender].burnedNfts[nftId].mintedHash!=0, "You have not burned this NFT");
         _;
     }
 
-    function mintNFT() internal returns (uint256, bytes32) {
+    function mintNFT(address receiver) internal returns (uint256, bytes32) {
         require(pivNFTAddress != address(0), "NFT Contract address not set");
         // mint
         PivNFT pivNFTContract = PivNFT(pivNFTAddress);
-        (uint256 newTokenId, bytes32 mintedHash) = pivNFTContract.mint();
+        (uint256 newTokenId, bytes32 mintedHash) = pivNFTContract.mint(receiver);
 
         return (newTokenId, mintedHash);
     }
@@ -68,32 +75,30 @@ contract PivWallet {
         require(wallets[msg.sender].pivBalance >= NFT_PRICE, "Insufficient balance, should have at least 100 PIV");
         require(ERC20(pivCoinAddress).transfer(owner, NFT_PRICE), "Transfer unsuccessful!");
         // mint NFT and return new nft data (id and hash)
-        (uint256 newTokenId, bytes32 mintedHash) = mintNFT();
+        (uint256 newTokenId, bytes32 mintedHash) = mintNFT(msg.sender);
         // update wallet after mint
         wallets[msg.sender].pivBalance -= NFT_PRICE;
-        wallets[msg.sender].nfts.push(WalletNFT(newTokenId, mintedHash));
+        wallets[msg.sender].burnedNfts[newTokenId].mintedHash = mintedHash;
+        wallets[msg.sender].nfts[newTokenId] = WalletNFT(newTokenId, mintedHash, true);
         emit NFTMinted(newTokenId, mintedHash);
     }
 
-    event NFTRedeemed(uint256 nftId, bytes32 mintedHash, bytes32 burnedHash);
-    function redeemNFT (uint256 nftId) hasNFT public {
+    event NFTBurned(uint256 nftId, bytes32 mintedHash, bytes32 burnedHash);
+    function redeemNFT (uint256 nftId) hasNFT(nftId) public {
         PivNFT pivNFTContract = PivNFT(pivNFTAddress);
         // burn the NFT and save the burned hash in the user's wallet
         bytes32 mintedHash;
-        // find the nft by id and get its minted hash
-        for (uint i = 0; i<wallets[msg.sender].nfts.length; i++) {
-            if (wallets[msg.sender].nfts[i].nftId == nftId) {
-                mintedHash = wallets[msg.sender].nfts[i].mintedHash;
-            }
-        }
+        mintedHash = wallets[msg.sender].nfts[nftId].mintedHash; 
+
         require(mintedHash!=bytes32(0), "Minted NFT hash not found by nft id! Cannot burn!");
 
-        bytes32 burnedHash = pivNFTContract.burn(nftId, mintedHash);
+        bytes32 burnedHash = pivNFTContract.burn(msg.sender, nftId, mintedHash);
+        emit NFTBurned(nftId, mintedHash, burnedHash);
 
         require(burnedHash!=bytes32(0), "Burned hash is empty. NFT was probably not burned properly!");
         // update wallet after NFT burn
-        wallets[msg.sender].burnedNfts.push(BurnedNFT(nftId, mintedHash, burnedHash));
-        emit NFTRedeemed(nftId, mintedHash, burnedHash);
+        wallets[msg.sender].burnedNfts[nftId] = BurnedNFT(nftId, mintedHash, burnedHash);
+        delete wallets[msg.sender].nfts[nftId];
     }
 
     function getUserBalance (address _user) public view returns (uint) {
@@ -101,27 +106,11 @@ contract PivWallet {
         return wallets[_user].pivBalance;
     }
 
-    function getMyNFTS () public view returns (WalletNFT[] memory) {
-        require (wallets[msg.sender].nfts.length > 0, "You do not have any nfts!");
-        return wallets[msg.sender].nfts;
-    }
-    function getMyNFTById (uint nftId) public view returns (WalletNFT memory nft) {
-        for (uint i = 0; i<wallets[msg.sender].nfts.length; i++) {
-            if (wallets[msg.sender].nfts[i].nftId==nftId) {
-                return wallets[msg.sender].nfts[i];
-            }
-        }
+    function getMyNFTById (uint nftId) hasNFT(nftId) public view returns (WalletNFT memory nft) {
+        return wallets[msg.sender].nfts[nftId];
     }
 
-    function getMyBurnedNFTS () public view returns (BurnedNFT[] memory) {
-        require (wallets[msg.sender].burnedNfts.length > 0, "You have not burned any nfts yet!");
-        return wallets[msg.sender].burnedNfts;
-    }
-    function getMyBurnedNFTById (uint nftId) public view returns (BurnedNFT memory nft) {
-        for (uint i = 0; i<wallets[msg.sender].burnedNfts.length; i++) {
-            if (wallets[msg.sender].burnedNfts[i].nftId==nftId) {
-                return wallets[msg.sender].burnedNfts[i];
-            }
-        }
+    function getMyBurnedNFTById (uint nftId) hasBurnedNFT(nftId) public view returns (BurnedNFT memory nft) {
+        return wallets[msg.sender].burnedNfts[nftId];
     }
 }
